@@ -10,7 +10,7 @@ const tool = {
 const execute = async ({}) => {
   // In a real application, you would call a weather API here
   return {
-    location: "Bucharest",
+    location: "New York",
   };
 };
 
