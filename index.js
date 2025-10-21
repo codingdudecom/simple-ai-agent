@@ -5,8 +5,6 @@ const chalk = require('chalk');
 const readline = require("readline");
 
 const toolsKit = require("./tools");
-const tools = toolsKit.tools;
-const toolsExecution = toolsKit.execute;
 
 
 // Initialize the Cerebras model
@@ -30,8 +28,11 @@ function getUserInput(prompt) {
 }
 
 async function main() {
+  const { tools, execute: toolsExecution } = await toolsKit.loadTools();
+
   console.log(chalk.cyan("Cerebras Agent Initialized"));
   console.log(chalk.cyan("Ask me anything! Type 'exit' to quit."));
+
 
   const messages = [];
 
@@ -58,7 +59,9 @@ async function main() {
 
       if (message?.tool_calls) {
         for (const toolCall of message.tool_calls) {
+
           const toolName = toolCall.function.name;
+          console.log(toolName);
           const toolArgs = JSON.parse(toolCall.function.arguments);
           const matchingTool = toolsExecution[toolName];
 
@@ -78,8 +81,8 @@ async function main() {
           }
         }
       } else {
-        console.log(chalk.blue(message.content));
-        messages.push(message);
+        console.log(chalk.red(JSON.stringify(message)));
+        // messages.push(message);
         break;
       }
 
