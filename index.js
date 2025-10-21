@@ -1,4 +1,4 @@
-
+require('dotenv').config();
 
 const Cerebras = require('@cerebras/cerebras_cloud_sdk');
 const chalk = require('chalk');
