@@ -12,6 +12,8 @@ const cerebras = new Cerebras({
   apiKey: process.env['CEREBRAS_API_KEY'], // This is the default and can be omitted
 });
 
+const MODEL = process.env['CEREBRAS_MODEL'];
+
 // Create a readline interface for user input
 const rl = readline.createInterface({
   input: process.stdin,
@@ -22,7 +24,15 @@ const rl = readline.createInterface({
 function getUserInput(prompt) {
   return new Promise((resolve) => {
     rl.question(prompt, (input) => {
-      resolve(input);
+      const value = input.replace(/\r$/, '').trim();
+
+      if (value.toLowerCase() === "exit") {
+        resolve(null);   // <-- let the awaiting code continue
+        rl.close();      // <-- then close readline
+        process.exit();
+        return;
+      }
+      resolve(value);
     });
   });
 }
@@ -40,8 +50,7 @@ async function main() {
   while (true) {
     const userInput = await getUserInput(chalk.magenta("> "));
 
-    if (userInput.toLowerCase() === "exit") {
-      rl.close();
+    if (userInput === null) {
       break;
     }
 
@@ -51,7 +60,7 @@ async function main() {
     while (true) {
       const chatCompletion = await cerebras.chat.completions.create({
         messages,
-        model: 'qwen-3-coder-480b',
+        model: MODEL,
         tools: tools,
       });
 
@@ -81,13 +90,15 @@ async function main() {
           }
         }
       } else {
-        console.log(chalk.red(JSON.stringify(message)));
+        // console.log(chalk.red(JSON.stringify(message)));
         // messages.push(message);
+        console.log(chalk.cyan(`> Final answer:\n\n${message.content}`));
         break;
       }
 
       await new Promise(resolve => setTimeout(resolve, 2000));
     }
+
   }
 }
 
