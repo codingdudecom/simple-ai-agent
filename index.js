@@ -77,6 +77,7 @@ async function main() {
   const { tools, execute: toolsExecution } = await toolsKit.loadTools();
 
   console.log(chalk.cyan(`${AI_PROVIDER.charAt(0).toUpperCase() + AI_PROVIDER.slice(1)} Agent Initialized`));
+  console.log(chalk.cyan(tools.map(o => o.function.name)));
   console.log(chalk.cyan("Ask me anything! Type 'exit' to quit."));
 
 
@@ -97,8 +98,13 @@ async function main() {
       const chatCompletion = await getChatCompletion(messages, MODEL, tools);
 
       const message = chatCompletion?.choices[0]?.message;
+      messages.push(message);
 
       if (message?.tool_calls) {
+        if (message.content) {
+          console.log(chalk.cyan(`> Thought:\n\n${message.content}`));
+        }
+
         for (const toolCall of message.tool_calls) {
           const toolName = toolCall.function.name;
 
