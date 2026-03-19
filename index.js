@@ -48,6 +48,34 @@ const rl = readline.createInterface({
   output: process.stdout,
 });
 
+let isExiting = false;
+function cleanupAndExit(code = 0) {
+  if (isExiting) return;
+  isExiting = true;
+  try {
+    rl.close();
+  } catch {}
+  if (process.stdin.isTTY) {
+    try {
+      process.stdin.setRawMode(false);
+    } catch {}
+  }
+  process.stdin.pause();
+  process.exit(code);
+}
+
+rl.on('SIGINT', () => {
+  console.log(chalk.yellow("\nReceived SIGINT, shutting down..."));
+  cleanupAndExit(130);
+});
+
+process.on('SIGINT', () => {
+  console.log(chalk.yellow("\nReceived SIGINT, shutting down..."));
+  cleanupAndExit(130);
+});
+process.on('SIGTERM', () => cleanupAndExit(143));
+process.on('SIGHUP', () => cleanupAndExit(129));
+
 // Function to get user input
 function getUserInput(prompt) {
   return new Promise((resolve) => {
@@ -56,8 +84,7 @@ function getUserInput(prompt) {
 
       if (value.toLowerCase() === "exit") {
         resolve(null);
-        rl.close();
-        process.exit();
+        cleanupAndExit(0);
         return;
       }
       resolve(value);
@@ -246,4 +273,7 @@ async function main() {
   }
 }
 
-main();
+main().catch((err) => {
+  console.error(chalk.red("Fatal error:"), err);
+  cleanupAndExit(1);
+});
