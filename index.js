@@ -1,26 +1,18 @@
-require('dotenv').config();
+const dotenv = require('dotenv');
+dotenv.config();
 
 const Cerebras = require('@cerebras/cerebras_cloud_sdk');
 const { Ollama } = require('ollama');
 const chalk = require('chalk');
 const readline = require("readline");
+const fs = require('fs');
+const path = require('path');
 
 const toolsKit = require("./tools");
 
-const AI_PROVIDER = process.env['AI_PROVIDER'] || 'cerebras';
-const MODEL = process.env[`${AI_PROVIDER.toUpperCase()}_MODEL`];
-
+let AI_PROVIDER;
+let MODEL;
 let aiClient;
-
-if (AI_PROVIDER === 'cerebras') {
-  aiClient = new Cerebras({
-    apiKey: process.env['CEREBRAS_API_KEY'],
-  });
-} else if (AI_PROVIDER === 'ollama') {
-  aiClient = new Ollama({
-    host: process.env['OLLAMA_HOST'],
-  });
-}
 
 async function getChatCompletion(messages, model, tools) {
   if (AI_PROVIDER === 'cerebras') {
@@ -73,7 +65,124 @@ function getUserInput(prompt) {
   });
 }
 
+function formatEnvValue(value) {
+  if (value === undefined || value === null) return '';
+  const str = String(value);
+  if (str === '') return '';
+  if (/[\s#=]/.test(str)) {
+    const escaped = str.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    return `"${escaped}"`;
+  }
+  return str;
+}
+
+function writeEnvFile(envPath, envVars) {
+  const lines = Object.keys(envVars)
+    .sort()
+    .map((key) => `${key}=${formatEnvValue(envVars[key])}`);
+  fs.writeFileSync(envPath, lines.join('\n') + '\n', 'utf8');
+}
+
+async function promptChoice(prompt, choices) {
+  while (true) {
+    console.log(prompt);
+    choices.forEach((choice, index) => {
+      console.log(`  ${index + 1}) ${choice.label}`);
+    });
+    const input = await getUserInput(chalk.magenta("Select an option: "));
+    if (input === null) return null;
+    const number = Number.parseInt(input, 10);
+    if (!Number.isNaN(number) && number >= 1 && number <= choices.length) {
+      return choices[number - 1].value;
+    }
+    console.log(chalk.red("Invalid selection. Please choose a number from the list."));
+  }
+}
+
+async function promptRequired(promptText, { defaultValue } = {}) {
+  while (true) {
+    const suffix = defaultValue ? ` (default: ${defaultValue})` : '';
+    const input = await getUserInput(chalk.magenta(`${promptText}${suffix}: `));
+    if (input === null) return null;
+    const value = input || defaultValue || '';
+    if (value.trim() !== '') {
+      return value.trim();
+    }
+    console.log(chalk.red("Please enter a value."));
+  }
+}
+
+async function ensureProviderConfigured() {
+  const envPath = path.join(process.cwd(), '.env');
+  const envFile = fs.existsSync(envPath)
+    ? dotenv.parse(fs.readFileSync(envPath, 'utf8'))
+    : {};
+
+  let provider = (process.env.AI_PROVIDER || envFile.AI_PROVIDER || '').toLowerCase();
+  const needsProvider = provider !== 'cerebras' && provider !== 'ollama';
+
+  const updates = {};
+
+  if (needsProvider) {
+    provider = await promptChoice("No AI provider configured. Choose one to set up:", [
+      { label: "Cerebras (cloud)", value: "cerebras" },
+      { label: "Ollama (local)", value: "ollama" },
+    ]);
+    if (!provider) {
+      process.exit();
+      return;
+    }
+  }
+
+  updates.AI_PROVIDER = provider;
+
+  if (provider === 'cerebras') {
+    const apiKey = process.env.CEREBRAS_API_KEY || envFile.CEREBRAS_API_KEY;
+    const model = process.env.CEREBRAS_MODEL || envFile.CEREBRAS_MODEL;
+    updates.CEREBRAS_API_KEY = apiKey || await promptRequired("Enter your Cerebras API key");
+    updates.CEREBRAS_MODEL = model || await promptRequired("Enter the Cerebras model name");
+  } else if (provider === 'ollama') {
+    const host = process.env.OLLAMA_HOST || envFile.OLLAMA_HOST;
+    const model = process.env.OLLAMA_MODEL || envFile.OLLAMA_MODEL;
+    updates.OLLAMA_HOST = host || await promptRequired("Enter the Ollama host", {
+      defaultValue: "http://localhost:11434",
+    });
+    updates.OLLAMA_MODEL = model || await promptRequired("Enter the Ollama model name");
+  }
+
+  const envExists = fs.existsSync(envPath);
+  const hasChanges = Object.keys(updates).some(
+    (key) => updates[key] && envFile[key] !== updates[key]
+  );
+  const needsWrite = needsProvider || hasChanges || !envExists;
+
+  if (needsWrite) {
+    const finalEnv = { ...envFile, ...updates };
+    writeEnvFile(envPath, finalEnv);
+    console.log(chalk.green("Wrote configuration to .env"));
+  }
+
+  dotenv.config({ path: envPath, override: true });
+}
+
 async function main() {
+  await ensureProviderConfigured();
+
+  AI_PROVIDER = (process.env['AI_PROVIDER'] || 'cerebras').toLowerCase();
+  MODEL = process.env[`${AI_PROVIDER.toUpperCase()}_MODEL`];
+
+  if (AI_PROVIDER === 'cerebras') {
+    aiClient = new Cerebras({
+      apiKey: process.env['CEREBRAS_API_KEY'],
+    });
+  } else if (AI_PROVIDER === 'ollama') {
+    aiClient = new Ollama({
+      host: process.env['OLLAMA_HOST'],
+    });
+  } else {
+    throw new Error(`Unsupported AI provider: ${AI_PROVIDER}`);
+  }
+
   const { tools, execute: toolsExecution } = await toolsKit.loadTools();
 
   console.log(chalk.cyan(`${AI_PROVIDER.charAt(0).toUpperCase() + AI_PROVIDER.slice(1)} Agent Initialized`));
