@@ -222,6 +222,7 @@ async function main() {
 
           if (matchingTool) {
             console.log(chalk.yellow(`+ Calling tool ${toolName}`));
+            console.log(chalk.yellow(`+ |-args: ${JSON.stringify(toolArgs)}`));
             const result = await matchingTool(toolArgs);
 
             const text = JSON.stringify(result);

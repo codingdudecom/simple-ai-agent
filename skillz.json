@@ -1,0 +1,15 @@
+{
+  "version": "1.0",
+  "targets": [],
+  "skillDirectories": [
+    "~/.gemini/skills",
+    "~/.claude/skills",
+    "~/.codex/skills",
+    "skills"
+  ],
+  "additionalSkills": [],
+  "ignore": [],
+  "includeInstructions": false,
+  "autoSync": false,
+  "skillsSectionName": "## Additional Instructions"
+}

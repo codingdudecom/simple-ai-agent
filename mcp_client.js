@@ -2,6 +2,61 @@ const { MCPClient } = require('mcp-client');
 const fs = require('fs');
 const path = require('path');
 
+const DEFAULT_TIMEOUT_MS = 60_000;
+const DEFAULT_RETRIES = 2;
+const DEFAULT_RETRY_DELAY_MS = 500;
+const DEFAULT_RETRY_BACKOFF = 2;
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function isTimeoutError(error) {
+  return (
+    error &&
+    (error.code === -32001 ||
+      error.code === 'RequestTimeout' ||
+      (typeof error.message === 'string' && error.message.includes('Request timed out')))
+  );
+}
+
+async function withRetries(fn, opts) {
+  const retries = Number.isFinite(opts.retries) ? opts.retries : DEFAULT_RETRIES;
+  const delayMs = Number.isFinite(opts.delayMs) ? opts.delayMs : DEFAULT_RETRY_DELAY_MS;
+  const backoff = Number.isFinite(opts.backoff) ? opts.backoff : DEFAULT_RETRY_BACKOFF;
+
+  let attempt = 0;
+  while (true) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (!isTimeoutError(error) || attempt >= retries) {
+        throw error;
+      }
+      const waitMs = Math.round(delayMs * Math.pow(backoff, attempt));
+      attempt += 1;
+      await sleep(waitMs);
+    }
+  }
+}
+
+function getRequestOptions(settings, serverConfig) {
+  const timeout =
+    serverConfig.timeoutMs ??
+    serverConfig.timeout ??
+    settings.mcpDefaultTimeoutMs ??
+    DEFAULT_TIMEOUT_MS;
+  return { timeout };
+}
+
+function getRetryOptions(settings, serverConfig) {
+  return {
+    retries: serverConfig.retries ?? settings.mcpDefaultRetries ?? DEFAULT_RETRIES,
+    delayMs: serverConfig.retryDelayMs ?? settings.mcpRetryDelayMs ?? DEFAULT_RETRY_DELAY_MS,
+    backoff: serverConfig.retryBackoff ?? settings.mcpRetryBackoff ?? DEFAULT_RETRY_BACKOFF,
+  };
+}
+
 async function loadMcpTools() {
   const settingsPath = path.join(__dirname, 'settings.json');
   if (!fs.existsSync(settingsPath)) {
@@ -33,7 +88,13 @@ async function loadMcpTools() {
             env: serverConfig.env,
         });
 
-        const mcpTools = await client.getAllTools();
+        const requestOptions = getRequestOptions(settings, serverConfig);
+        const retryOptions = getRetryOptions(settings, serverConfig);
+
+        const mcpTools = await withRetries(
+          () => client.getAllTools({ requestOptions }),
+          retryOptions
+        );
 
         const tools = mcpTools.map(tool => ({
             type: 'function',
@@ -47,10 +108,17 @@ async function loadMcpTools() {
         for (const tool of mcpTools) {
             const toolName = `${serverName}-${tool.name}`;
             allExecute[toolName] = async (args) => {
-                return await client.callTool({
-                    name: tool.name,
-                    arguments: args,
-                });
+                return await withRetries(
+                  () =>
+                    client.callTool(
+                      {
+                        name: tool.name,
+                        arguments: args,
+                      },
+                      { requestOptions }
+                    ),
+                  retryOptions
+                );
             };
         }
 

@@ -2,12 +2,15 @@
   "mcpServers": {
     "chrome-devtools": {
       "command": "npx",
-      "args": ["chrome-devtools-mcp@latest"]
+      "args": [
+        "chrome-devtools-mcp@latest"
+      ]
     },
     "skillz": {
-      "command": "uvx",
+      "command": "npx",
       "args": [
-        "skillz@latest"
+        "skillz@latest",
+        "server"
       ],
       "timeout": 100
     }
