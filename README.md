@@ -36,3 +36,29 @@ Out of the box, the agent loads these local tools:
 - `list_directory_contents` — List all files and folders in the current directory
 - `read_file_content` — Read the full content of a specified file
 - `write_file` — Write content to a specified file
+
+## Skills Configuration (skillz.json)
+
+This project uses the `skillz` CLI (via MCP) to discover and manage AI skills. The configuration lives in `skillz.json` in the project root.
+
+By default, `skillz.json` is set up to scan standard classic skill directories for Gemini, Claude, and OpenAI Codex, plus a local `skills/` folder:
+
+```json
+{
+  "skillDirectories": [
+    "~/.gemini/skills",
+    "~/.claude/skills",
+    "~/.codex/skills",
+    "skills"
+  ]
+}
+```
+
+### How to Customize
+
+- Add or remove directories in `skillDirectories` to change where skills are discovered.
+- Use `additionalSkills` to include extra one-off skill folders.
+- Use `ignore` to filter out skills by name/pattern.
+- Set `includeInstructions` to `true` if you want Skillz to embed full `SKILL.md` contents when syncing targets.
+
+If you create or move skills, update `skillz.json` and re-run `skillz sync` (if you use sync targets) or call the `list_available_skills` tool to refresh the available list.
