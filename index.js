@@ -9,6 +9,7 @@ const fs = require('fs');
 const path = require('path');
 
 const toolsKit = require("./tools");
+const { buildSystemPrompt } = require("./system_prompt");
 
 let AI_PROVIDER;
 let MODEL;
@@ -27,7 +28,7 @@ async function getChatCompletion(messages, model, tools) {
       messages,
       tools,
       options: {
-          num_ctx: 65536   // or 16384 depending on the model
+        num_ctx: 65536   // or 16384 depending on the model
       }
     });
 
@@ -54,11 +55,11 @@ function cleanupAndExit(code = 0) {
   isExiting = true;
   try {
     rl.close();
-  } catch {}
+  } catch { }
   if (process.stdin.isTTY) {
     try {
       process.stdin.setRawMode(false);
-    } catch {}
+    } catch { }
   }
   process.stdin.pause();
   process.exit(code);
@@ -216,9 +217,9 @@ async function main() {
   console.log(chalk.cyan(tools.map(o => o.function.name)));
   console.log(chalk.cyan("Ask me anything! Type 'exit' to quit."));
 
-
-  const messages = [];
-
+  const systemPrompt = await buildSystemPrompt();
+  const messages = [{ role: "system", content: systemPrompt }];
+  // console.log(chalk.red(systemPrompt));
   // Main agent loop
   while (true) {
     const userInput = await getUserInput(chalk.magenta("> "));
@@ -244,7 +245,7 @@ async function main() {
         for (const toolCall of message.tool_calls) {
           const toolName = toolCall.function.name;
 
-          const toolArgs = typeof(toolCall.function.arguments) == "object"?toolCall.function.arguments:JSON.parse(toolCall.function.arguments);
+          const toolArgs = typeof (toolCall.function.arguments) == "object" ? toolCall.function.arguments : JSON.parse(toolCall.function.arguments);
           const matchingTool = toolsExecution[toolName];
 
           if (matchingTool) {
