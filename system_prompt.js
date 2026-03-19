@@ -54,7 +54,10 @@ async function getSkillsSection() {
 - None detected.`;
     }
 
-    const lines = ['**Available Skills**'];
+    const lines = [
+      '**Available Skills**',
+      '- If a skill fits the user request and would help, activate it first with the `activate_skill` tool and the absolute path to the skill folder indicated by the path property, then solve the request.',
+    ];
     for (const skill of skills) {
       lines.push(`- ${skill.name}: ${skill.description}`);
     }
