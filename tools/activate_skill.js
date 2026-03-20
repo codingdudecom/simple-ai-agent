@@ -144,7 +144,10 @@ const execute = async ({ skillPath }) => {
     return { error: 'No valid SKILL.md files found (missing or invalid frontmatter)', skillPath: resolvedPath };
   }
 
-  return { skillPath: resolvedPath, count: skills.length, skills };
+  // return { skillPath: resolvedPath, count: skills.length, skills };
+  return skills.map(({ name, body }) =>
+    `<skill_content name="${name}">${body}</skill_content>`
+  ).join('\n');
 };
 
 module.exports = { tool, execute };

@@ -55,13 +55,15 @@ async function getSkillsSection() {
     }
 
     const lines = [
-      '**Available Skills**',
-      '- If a skill fits the user request and would help, activate it first with the `activate_skill` tool and the absolute path to the skill folder indicated by the path property, then solve the request.',
+      `**Available Skills**
+
+The following skills provide specialized instructions for specific tasks.
+When a task matches a skill's description, call the activate_skill tool with the skill's absolute path to load its full instructions.`,
     ];
-    for (const skill of skills) {
-      lines.push(`- ${skill.name}: ${skill.description}`);
-    }
-    return lines.join('\n');
+    // for (const skill of skills) {
+    //   lines.push(`- ${skill.name}: ${skill.description}`);
+    // }
+    return lines.join('\n') + '\n\n<available_skills>\n' + JSON.stringify(skills.map(({ name, description, path }) => ({ name, description, path })), null, 2) + '\n</available_skills>';
   } catch (error) {
     return `**Available Skills**
 - Error loading skills: ${error.message}`;
