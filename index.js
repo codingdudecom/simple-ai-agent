@@ -2,6 +2,7 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 const Cerebras = require('@cerebras/cerebras_cloud_sdk');
+const Groq = require('groq-sdk');
 const { Ollama } = require('ollama');
 const chalk = require('chalk');
 const readline = require("readline");
@@ -17,6 +18,12 @@ let aiClient;
 
 async function getChatCompletion(messages, model, tools) {
   if (AI_PROVIDER === 'cerebras') {
+    return aiClient.chat.completions.create({
+      messages,
+      model,
+      tools,
+    });
+  } else if (AI_PROVIDER === 'groq') {
     return aiClient.chat.completions.create({
       messages,
       model,
@@ -147,13 +154,14 @@ async function ensureProviderConfigured() {
     : {};
 
   let provider = (process.env.AI_PROVIDER || envFile.AI_PROVIDER || '').toLowerCase();
-  const needsProvider = provider !== 'cerebras' && provider !== 'ollama';
+  const needsProvider = provider !== 'cerebras' && provider !== 'groq' && provider !== 'ollama';
 
   const updates = {};
 
   if (needsProvider) {
     provider = await promptChoice("No AI provider configured. Choose one to set up:", [
       { label: "Cerebras (cloud)", value: "cerebras" },
+      { label: "Groq (cloud)", value: "groq" },
       { label: "Ollama (local)", value: "ollama" },
     ]);
     if (!provider) {
@@ -169,6 +177,11 @@ async function ensureProviderConfigured() {
     const model = process.env.CEREBRAS_MODEL || envFile.CEREBRAS_MODEL;
     updates.CEREBRAS_API_KEY = apiKey || await promptRequired("Enter your Cerebras API key");
     updates.CEREBRAS_MODEL = model || await promptRequired("Enter the Cerebras model name");
+  } else if (provider === 'groq') {
+    const apiKey = process.env.GROQ_API_KEY || envFile.GROQ_API_KEY;
+    const model = process.env.GROQ_MODEL || envFile.GROQ_MODEL;
+    updates.GROQ_API_KEY = apiKey || await promptRequired("Enter your Groq API key");
+    updates.GROQ_MODEL = model || await promptRequired("Enter the Groq model name");
   } else if (provider === 'ollama') {
     const host = process.env.OLLAMA_HOST || envFile.OLLAMA_HOST;
     const model = process.env.OLLAMA_MODEL || envFile.OLLAMA_MODEL;
@@ -202,6 +215,10 @@ async function main() {
   if (AI_PROVIDER === 'cerebras') {
     aiClient = new Cerebras({
       apiKey: process.env['CEREBRAS_API_KEY'],
+    });
+  } else if (AI_PROVIDER === 'groq') {
+    aiClient = new Groq({
+      apiKey: process.env['GROQ_API_KEY'],
     });
   } else if (AI_PROVIDER === 'ollama') {
     aiClient = new Ollama({

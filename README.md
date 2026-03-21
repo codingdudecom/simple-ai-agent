@@ -26,6 +26,16 @@ OLLAMA_HOST=http://localhost:11434
 OLLAMA_MODEL=your_ollama_model
 ```
 
+### Groq
+
+To use Groq as the AI provider, set the following environment variables:
+
+```
+AI_PROVIDER=groq
+GROQ_API_KEY=your_groq_api_key
+GROQ_MODEL=your_groq_model
+```
+
 ## Available Tools
 
 Out of the box, the agent loads these local tools:
