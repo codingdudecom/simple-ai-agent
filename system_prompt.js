@@ -27,7 +27,7 @@ async function getGuidelines() {
 - If a task can be solved with existing tools or files, prefer that.`;
 }
 
-async function getSkillsSection() {
+async function getAvailableSkills() {
   try {
     const [{ loadConfig }, { scanAllSkillDirectories }, { setQuiet }] = await Promise.all([
       import('skillz/dist/core/config.js'),
@@ -43,31 +43,39 @@ async function getSkillsSection() {
     const config = await loadConfig(cwd);
 
     if (!config) {
-      return `**Available Skills**
-- No skillz configuration found.
-- Expected config at: ${path.join(cwd, 'skillz.json')}`;
+      return {
+        skills: [],
+        error: `No skillz configuration found. Expected config at: ${path.join(cwd, 'skillz.json')}`,
+      };
     }
 
     const skills = await scanAllSkillDirectories(config);
-    if (!skills.length) {
-      return `**Available Skills**
-- None detected.`;
-    }
+    return { skills, error: null };
+  } catch (error) {
+    return { skills: [], error: error.message };
+  }
+}
 
-    const lines = [
-      `**Available Skills**
+async function getSkillsSection() {
+  const { skills, error } = await getAvailableSkills();
+
+  if (error) {
+    return `**Available Skills**
+- ${error}`;
+  }
+
+  if (!skills.length) {
+    return `**Available Skills**
+- None detected.`;
+  }
+
+  const lines = [
+    `**Available Skills**
 
 The following skills provide specialized instructions for specific tasks.
 When a task matches a skill's description, call the activate_skill tool with the skill's absolute path to load its full instructions.`,
-    ];
-    // for (const skill of skills) {
-    //   lines.push(`- ${skill.name}: ${skill.description}`);
-    // }
-    return lines.join('\n') + '\n\n<available_skills>\n' + JSON.stringify(skills.map(({ name, description, path }) => ({ name, description, path })), null, 2) + '\n</available_skills>';
-  } catch (error) {
-    return `**Available Skills**
-- Error loading skills: ${error.message}`;
-  }
+  ];
+  return lines.join('\n') + '\n\n<available_skills>\n' + JSON.stringify(skills.map(({ name, description, path }) => ({ name, description, path })), null, 2) + '\n</available_skills>';
 }
 
 async function buildSystemPrompt() {
@@ -87,5 +95,6 @@ module.exports = {
   getGoals,
   getRestrictions,
   getGuidelines,
+  getAvailableSkills,
   getSkillsSection,
 };

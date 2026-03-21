@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 
 const toolsKit = require("./tools");
-const { buildSystemPrompt } = require("./system_prompt");
+const { buildSystemPrompt, getAvailableSkills } = require("./system_prompt");
 
 let AI_PROVIDER;
 let MODEL;
@@ -215,6 +215,15 @@ async function main() {
 
   console.log(chalk.cyan(`${AI_PROVIDER.charAt(0).toUpperCase() + AI_PROVIDER.slice(1)} Agent Initialized`));
   console.log(chalk.cyan(tools.map(o => o.function.name)));
+  console.log(chalk.cyan("Available skills:"));
+  const { skills, error: skillsError } = await getAvailableSkills();
+  if (skillsError) {
+    console.log(chalk.yellow(`Skills unavailable: ${skillsError}`));
+  } else if (!skills.length) {
+    console.log(chalk.yellow("No skills detected."));
+  } else {
+    console.log(chalk.cyan(skills.map(skill => skill.name)));
+  }
   console.log(chalk.cyan("Ask me anything! Type 'exit' to quit."));
 
   const systemPrompt = await buildSystemPrompt();
