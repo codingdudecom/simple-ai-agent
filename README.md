@@ -36,6 +36,16 @@ GROQ_API_KEY=your_groq_api_key
 GROQ_MODEL=your_groq_model
 ```
 
+### NVIDIA
+
+To use NVIDIA as the AI provider, set the following environment variables:
+
+```
+AI_PROVIDER=nvidia
+NVIDIA_API_KEY=your_nvidia_api_key
+NVIDIA_MODEL=your_nvidia_model
+```
+
 ## Available Tools
 
 Out of the box, the agent loads these local tools:

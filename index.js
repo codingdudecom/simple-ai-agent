@@ -4,6 +4,7 @@ dotenv.config();
 const Cerebras = require('@cerebras/cerebras_cloud_sdk');
 const Groq = require('groq-sdk');
 const { Ollama } = require('ollama');
+const OpenAI = require('openai');
 const chalk = require('chalk');
 const readline = require("readline");
 const fs = require('fs');
@@ -24,6 +25,12 @@ async function getChatCompletion(messages, model, tools) {
       tools,
     });
   } else if (AI_PROVIDER === 'groq') {
+    return aiClient.chat.completions.create({
+      messages,
+      model,
+      tools,
+    });
+  } else if (AI_PROVIDER === 'nvidia') {
     return aiClient.chat.completions.create({
       messages,
       model,
@@ -154,7 +161,7 @@ async function ensureProviderConfigured() {
     : {};
 
   let provider = (process.env.AI_PROVIDER || envFile.AI_PROVIDER || '').toLowerCase();
-  const needsProvider = provider !== 'cerebras' && provider !== 'groq' && provider !== 'ollama';
+  const needsProvider = provider !== 'cerebras' && provider !== 'groq' && provider !== 'ollama' && provider !== 'nvidia';
 
   const updates = {};
 
@@ -162,6 +169,7 @@ async function ensureProviderConfigured() {
     provider = await promptChoice("No AI provider configured. Choose one to set up:", [
       { label: "Cerebras (cloud)", value: "cerebras" },
       { label: "Groq (cloud)", value: "groq" },
+      { label: "NVIDIA (cloud)", value: "nvidia" },
       { label: "Ollama (local)", value: "ollama" },
     ]);
     if (!provider) {
@@ -182,6 +190,11 @@ async function ensureProviderConfigured() {
     const model = process.env.GROQ_MODEL || envFile.GROQ_MODEL;
     updates.GROQ_API_KEY = apiKey || await promptRequired("Enter your Groq API key");
     updates.GROQ_MODEL = model || await promptRequired("Enter the Groq model name");
+  } else if (provider === 'nvidia') {
+    const apiKey = process.env.NVIDIA_API_KEY || envFile.NVIDIA_API_KEY;
+    const model = process.env.NVIDIA_MODEL || envFile.NVIDIA_MODEL;
+    updates.NVIDIA_API_KEY = apiKey || await promptRequired("Enter your NVIDIA API key");
+    updates.NVIDIA_MODEL = model || await promptRequired("Enter the NVIDIA model name");
   } else if (provider === 'ollama') {
     const host = process.env.OLLAMA_HOST || envFile.OLLAMA_HOST;
     const model = process.env.OLLAMA_MODEL || envFile.OLLAMA_MODEL;
@@ -219,6 +232,11 @@ async function main() {
   } else if (AI_PROVIDER === 'groq') {
     aiClient = new Groq({
       apiKey: process.env['GROQ_API_KEY'],
+    });
+  } else if (AI_PROVIDER === 'nvidia') {
+    aiClient = new OpenAI({
+      apiKey: process.env['NVIDIA_API_KEY'],
+      baseURL: 'https://integrate.api.nvidia.com/v1',
     });
   } else if (AI_PROVIDER === 'ollama') {
     aiClient = new Ollama({
@@ -263,7 +281,7 @@ async function main() {
       const message = chatCompletion?.choices[0]?.message;
       messages.push(message);
 
-      if (message?.tool_calls) {
+      if (message?.tool_calls && message.tool_calls.length > 0) {
         if (message.content) {
           console.log(chalk.cyan(`> Thought:\n\n${message.content}`));
         }
