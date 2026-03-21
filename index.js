@@ -18,32 +18,37 @@ let MODEL;
 let aiClient;
 
 async function getChatCompletion(messages, model, tools) {
+  const max_tokens = process.env.MAX_TOKENS ? parseInt(process.env.MAX_TOKENS, 10) : undefined;
+
+  const baseParams = {
+    messages,
+    model,
+    tools,
+  };
+
+  if (max_tokens) {
+    baseParams.max_tokens = max_tokens;
+  }
+
   if (AI_PROVIDER === 'cerebras') {
-    return aiClient.chat.completions.create({
-      messages,
-      model,
-      tools,
-    });
+    return aiClient.chat.completions.create(baseParams);
   } else if (AI_PROVIDER === 'groq') {
-    return aiClient.chat.completions.create({
-      messages,
-      model,
-      tools,
-    });
+    return aiClient.chat.completions.create(baseParams);
   } else if (AI_PROVIDER === 'nvidia') {
-    return aiClient.chat.completions.create({
-      messages,
-      model,
-      tools,
-    });
+    return aiClient.chat.completions.create(baseParams);
   } else if (AI_PROVIDER === 'ollama') {
+    const options = {
+      num_ctx: 65536   // or 16384 depending on the model
+    };
+    if (max_tokens) {
+      options.num_predict = max_tokens;
+    }
+
     const response = await aiClient.chat({
       model,
       messages,
       tools,
-      options: {
-        num_ctx: 65536   // or 16384 depending on the model
-      }
+      options
     });
 
     // Make ollama response OpenAI-compatible
