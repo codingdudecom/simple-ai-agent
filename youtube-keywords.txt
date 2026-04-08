@@ -1,0 +1,19 @@
+{
+  "phrase": "outline text effect",
+  "suggestions": [
+    "outline text effect in photoshop",
+    "outline text effect in gimp",
+    "outline text effect in canva",
+    "outline text effect capcut",
+    "outline text effect",
+    "outline text effect in premiere pro",
+    "outline text effect after effects",
+    "outline text effect in picsart",
+    "outline text effect davinci resolve",
+    "outline text effect in figma",
+    "outline text effect alight motion",
+    "outline text effect in mobile",
+    "outline text effect davinci resolve free",
+    "outline text effect in illustrator"
+  ]
+}

@@ -16,6 +16,25 @@ const { buildSystemPrompt, getAvailableSkills } = require("./system_prompt");
 let AI_PROVIDER;
 let MODEL;
 let aiClient;
+let OLLAMA_OPENAI_COMPAT = false;
+
+function normalizeOpenAIBaseURL(rawHost) {
+  if (!rawHost) return rawHost;
+  let host = rawHost.trim().replace(/\/+$/, '');
+  if (host.endsWith('/v1')) return host;
+  if (host.endsWith('/openai')) return `${host}/v1`;
+  if (host.includes('/openai/')) {
+    if (host.endsWith('/openai')) return `${host}/v1`;
+    return host;
+  }
+  return host;
+}
+
+function isOpenAICompatHost(rawHost) {
+  if (!rawHost) return false;
+  const host = rawHost.toLowerCase();
+  return host.includes('/openai') || host.includes('/v1');
+}
 
 async function getChatCompletion(messages, model, tools) {
   const max_tokens = process.env.MAX_TOKENS ? parseInt(process.env.MAX_TOKENS, 10) : undefined;
@@ -37,6 +56,9 @@ async function getChatCompletion(messages, model, tools) {
   } else if (AI_PROVIDER === 'nvidia') {
     return aiClient.chat.completions.create(baseParams);
   } else if (AI_PROVIDER === 'ollama') {
+    if (OLLAMA_OPENAI_COMPAT) {
+      return aiClient.chat.completions.create(baseParams);
+    }
     const options = {
       num_ctx: 65536   // or 16384 depending on the model
     };
@@ -203,10 +225,12 @@ async function ensureProviderConfigured() {
   } else if (provider === 'ollama') {
     const host = process.env.OLLAMA_HOST || envFile.OLLAMA_HOST;
     const model = process.env.OLLAMA_MODEL || envFile.OLLAMA_MODEL;
+    const apiKey = process.env.OLLAMA_API_KEY || envFile.OLLAMA_API_KEY;
     updates.OLLAMA_HOST = host || await promptRequired("Enter the Ollama host", {
       defaultValue: "http://localhost:11434",
     });
     updates.OLLAMA_MODEL = model || await promptRequired("Enter the Ollama model name");
+    updates.OLLAMA_API_KEY = apiKey || await promptRequired("Enter your Ollama API key");
   }
 
   const envExists = fs.existsSync(envPath);
@@ -244,9 +268,22 @@ async function main() {
       baseURL: 'https://integrate.api.nvidia.com/v1',
     });
   } else if (AI_PROVIDER === 'ollama') {
-    aiClient = new Ollama({
-      host: process.env['OLLAMA_HOST'],
-    });
+    const apiKey = process.env['OLLAMA_API_KEY'];
+    const host = process.env['OLLAMA_HOST'];
+    const envCompat = (process.env['OLLAMA_OPENAI_COMPAT'] || '').toLowerCase() === 'true';
+    OLLAMA_OPENAI_COMPAT = envCompat || isOpenAICompatHost(host);
+    if (OLLAMA_OPENAI_COMPAT) {
+      const baseURL = normalizeOpenAIBaseURL(host);
+      aiClient = new OpenAI({
+        apiKey: apiKey || 'dummy',
+        baseURL,
+      });
+    } else {
+      aiClient = new Ollama({
+        host,
+        headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : undefined,
+      });
+    }
   } else {
     throw new Error(`Unsupported AI provider: ${AI_PROVIDER}`);
   }
