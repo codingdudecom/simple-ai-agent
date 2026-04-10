@@ -40,7 +40,15 @@ async function getChatCompletion(messages, model, tools) {
   const max_tokens = process.env.MAX_TOKENS ? parseInt(process.env.MAX_TOKENS, 10) : undefined;
 
   const baseParams = {
-    messages,
+    messages: messages.map(msg => {
+        if (msg.role === 'tool' && Array.isArray(msg.content)) {
+            return {
+                ...msg,
+                content: JSON.stringify(msg.content)
+            };
+        }
+        return msg;
+    }),
     model,
     tools,
   };
@@ -68,7 +76,10 @@ async function getChatCompletion(messages, model, tools) {
 
     const response = await aiClient.chat({
       model,
-      messages,
+      messages: messages.map(msg => ({
+          ...msg,
+          content: typeof msg.content === 'object' ? JSON.stringify(msg.content) : msg.content
+      })),
       tools,
       options
     });
@@ -339,14 +350,30 @@ async function main() {
             console.log(chalk.yellow(`+ |-args: ${JSON.stringify(toolArgs)}`));
             const result = await matchingTool(toolArgs);
 
-            const text = JSON.stringify(result);
-            const truncated = text.length > 100 ? text.slice(0, 100) + '...' : text;
+            let content;
+            if (result && Array.isArray(result.content)) {
+                content = result.content.map(part => {
+                    if (part.type === 'image') {
+                        return {
+                            type: 'image_url',
+                            image_url: {
+                                url: `data:${part.mimeType || 'image/png'};base64,${part.data}`
+                            }
+                        };
+                    }
+                    return { type: 'text', text: part.text || JSON.stringify(part) };
+                });
+            } else {
+                content = JSON.stringify(result);
+            }
+
+            const truncated = typeof content === 'string' ? (content.length > 100 ? content.slice(0, 100) + '...' : content) : '[Image Data]';
             console.log(chalk.yellow(`= Tool response ${truncated}`));
             messages.push({
               role: "tool",
               tool_call_id: toolCall.id,
               name: toolName,
-              content: JSON.stringify(result),
+              content: content,
             });
           }
         }
